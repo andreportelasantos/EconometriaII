@@ -1,0 +1,122 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage{amsmath}
+\usepackage[T1]{fontenc}
+\usepackage[portuguese]{babel}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{epstopdf}
+\usepackage{float}
+\usepackage{hyperref}
+
+
+\usepackage[left=2cm,right=2cm,top=1.5cm,bottom=1.5cm]{geometry}
+
+\author{André Portela Santos}
+\title{\textbf{Econometria II} \\  \bigskip Códigos da Aula 3}
+\date{}
+
+
+\begin{document}
+
+\maketitle
+
+\bigskip
+
+
+\section{Simulação de processos aleatórios}
+
+\subsection{Processo estacionário}
+
+\[
+y_t=\epsilon_t, \,\,\,\,\,  \epsilon_t \sim N(0,1)
+\]
+
+<<Codigo01, echo=T, results='asis',  fig.width=10, fig.height=5, fig.align='center', out.width=".75\\linewidth", warning=FALSE, message=FALSE, size='footnotesize'>>=
+ 
+plot.ts(rnorm(1000,0,1),ylab="dados",main=
+          "1000 observações de um processo estacionário")
+
+@
+
+\subsection{Processo não-estacionário}
+
+\[
+y_t=\prod_{t=0}^{t=T}(1+\epsilon_t)-1, \,\,\,\,\,\, \epsilon_t \sim N(0,1)
+\]
+
+<<Codigo01a, echo=T, results='asis',  fig.width=10, fig.height=5, fig.align='center', out.width=".75\\linewidth", warning=FALSE, message=FALSE, size='footnotesize'>>=
+
+plot.ts(cumprod(1+rnorm(1000,0,1)/100)-1,ylab="dados",
+main="1000 observações de um processo não-estacionário")
+
+# Exibindo uma ao lado da outro #
+par(mfrow=c(1,2))
+plot.ts(rnorm(1000,0,1), xlab='', ylab='', bty='l', col='black',
+     main='100 realizações de um processo aleatório não estacionário', type = 'l')
+plot.ts(cumprod(1+rnorm(1000,0,1)/100)-1, xlab='', ylab='', bty='l', col='black',
+     main='100 realizações de um processo aleatório estacionário', type = 'l')
+
+
+@
+
+
+\section{Autocorrelação}
+
+<<Codigo02, echo=T, results='asis',  fig.width=10, fig.height=5, fig.align='center', out.width=".75\\linewidth", warning=FALSE, message=FALSE, size='footnotesize'>>=
+
+library(forecast)
+library(ggplot2)
+library(xts)
+library(highfrequency)
+
+# Autocorrelação dos log-retornos da petrobras
+
+petr4 <- read.table('petr4.csv', header = TRUE, sep = ';', dec = ',')
+
+### Ordernar os dados de acordo com um vetor de datas
+
+petr4$data <- as.Date(petr4$data, format='%d/%m/%Y')
+
+petr4 <- xts(petr4, order.by = petr4$data)
+logretornos <- makeReturns(petr4$fechamento)
+
+autoplot(logretornos, xlab='', main='Logretorno dos preços de fechamento')
+
+ggAcf(logretornos)
+
+logsq <- logretornos^2
+ggAcf(logsq)
+
+logabs <- abs(logretornos)
+ggAcf(logabs)
+
+
+@
+
+\section*{AR(1)}
+
+
+<<Codigo03, echo=T, results='asis',  fig.width=10, fig.height=5, fig.align='center', out.width=".75\\linewidth", warning=FALSE, message=FALSE, size='footnotesize'>>=
+
+## Simulação de um processo AR(1)
+
+library(forecast)
+library(ggplot2)
+
+Yt <- arima.sim(model=list(ar=0.5), n=1000)
+
+autoplot(Yt)
+
+ggAcf(Yt)
+
+@
+
+
+
+
+\end{document}
+

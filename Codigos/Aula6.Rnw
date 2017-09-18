@@ -1,0 +1,39 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage{amsmath}
+\usepackage[T1]{fontenc}
+\usepackage[portuguese]{babel}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{epstopdf}
+\usepackage{float}
+\usepackage{hyperref}
+
+
+\usepackage[left=2cm,right=2cm,top=1.5cm,bottom=1.5cm]{geometry}
+
+\author{André Portela Santos}
+\title{\textbf{Curso de Econometria II} \\  \bigskip \emph{Aula 6}}
+\date{\today}
+
+
+\begin{document}
+
+\maketitle
+
+\bigskip
+
+
+\section*{Exercício 1}
+
+Utilize os dados de uma série temporal econômica ou financeira do
+seu interesse para estimar os parâmetros de um um modelo ARMA(2,2)
+utilizando o método de máxima verossimilhança condicional.
+
+
+
+\end{document}
+

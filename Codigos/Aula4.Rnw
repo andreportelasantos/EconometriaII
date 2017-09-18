@@ -1,0 +1,165 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage{amsmath}
+\usepackage[T1]{fontenc}
+\usepackage[portuguese]{babel}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{epstopdf}
+\usepackage{float}
+\usepackage{hyperref}
+
+
+\usepackage[left=2cm,right=2cm,top=1.5cm,bottom=1.5cm]{geometry}
+
+\author{André Portela Santos}
+\title{\textbf{Econometria II} \\  \bigskip Códigos da Aula 4}
+\date{}
+
+
+\begin{document}
+
+\maketitle
+
+\bigskip
+
+
+\section{Autocorrelação parcial}
+
+
+<<Codigo01, echo=T, results='asis',  fig.width=10, fig.height=5, fig.align='center', out.width=".75\\linewidth", warning=FALSE, message=FALSE, size='footnotesize'>>=
+
+# verifica pacotes instalados
+list.of.packages <- c("forecast","ggplot2","xts","highfrequency","stargazer","hydroGOF")
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages)
+
+# lê pacotes
+library(forecast)
+library(ggplot2)
+library(xts) 
+library(highfrequency)
+library(stargazer)
+library(hydroGOF)
+
+## Autocorrelação parcial dos log-retornos da petrobras
+
+petr4 <- read.table('petr4.csv', header = TRUE, sep = ';', dec = ',')
+
+### Ordernar os dados de acordo com um vetor de datas
+
+petr4data <- as.Date(petr4$data, format='%d/%m/%Y')
+
+petr4 <- xts(petr4, order.by = petr4data)
+logretornos <- makeReturns(petr4$fechamento)
+logretornos <- xts(logretornos, order.by = petr4data)
+autoplot(logretornos, xlab='', main='Variação intraday')
+
+ggPacf(logretornos)
+
+
+@
+
+
+\section{Autocorrelação de um AR(2)}
+
+
+<<Codigo02, echo=T, results='asis',  fig.width=10, fig.height=5, fig.align='center', out.width=".75\\linewidth", warning=FALSE, message=FALSE, size='footnotesize'>>=
+
+## Simula um processo AR(2) estacionário e calcula a FAC e a FACP
+
+AR2 <- arima.sim(n=1000, list(ar=c(0.4, 0.3)), innov=rnorm(1000,0,1))
+
+autoplot(AR2)
+
+ggtsdisplay(AR2)
+
+
+@
+
+
+\section{Análise dos retornos da ação PETR4}
+
+
+<<Codigo03, echo=T, results='asis',  fig.width=10, fig.height=5, fig.align='center', out.width=".75\\linewidth", warning=FALSE, message=FALSE, size='footnotesize'>>=
+
+## Estimação um modelo AR(1) para os retornos da PETR4 
+estar1 <- arima(logretornos, order=c(1,0,0))
+autoplot(estar1)
+
+# Autocorrelação dos resíduos
+ggtsdisplay(resid(estar1))
+
+
+@
+
+
+\section*{Exercício 1}
+
+
+<<Codigo04, echo=T, results='asis',  fig.width=10, fig.height=5, fig.align='center', out.width=".75\\linewidth", warning=FALSE, message=FALSE, size='footnotesize'>>=
+
+## Exercício 1: calcular a série de previsões 1 passo a frente usando o modelo
+## AR(1) estimado para a série PETR4
+
+festar1 <- (forecast(estar1, h=nrow(logretornos), 
+                    level=95))
+
+# calcular a raiz do erro quadrático médio
+
+Acuracia <- accuracy(festar1)
+Acuracia[,2]
+
+
+@
+
+
+\section{Modelos MA}
+
+<<Codigo05, echo=T, results='asis',  fig.width=10, fig.height=5, fig.align='center', out.width=".75\\linewidth", warning=FALSE, message=FALSE, size='footnotesize'>>=
+
+## MA(2)
+
+MA2 <- arima.sim(n=1000, list(ma=c(-0.5, 0.4)), innov=rnorm(1000,0,1))
+
+ggtsdisplay(MA2)
+
+@
+
+
+\section*{Exercício 2}
+
+
+<<Codigo06, echo=T, results='asis',  fig.width=10, fig.height=5, fig.align='center', out.width=".75\\linewidth", warning=FALSE, message=FALSE, size='footnotesize'>>=
+
+## Exercício 2: Simule um processo ARMA(1,1) e faça o gráfico da
+# autocorrelação e autocorrelação parcial
+
+ARMA11 <- arima.sim(n=1000, list(ma=c(-0.2), ar=c(0.3)), innov=rnorm(1000,0,1))
+
+autoplot(ARMA11)
+
+ggtsdisplay(ARMA11)
+
+
+@
+
+
+\section*{Exercício 3}
+
+
+<<Codigo07, echo=T, results='asis',  fig.width=10, fig.height=5, fig.align='center', out.width=".75\\linewidth", warning=FALSE, message=FALSE, size='footnotesize'>>=
+
+## Exercício 3: Utilize a função auto.arima 
+##(?auto.arima para saber como utilizá-la) e encontre a
+## especificação ARMA(p,q) que minimiza o AIC e BIC para o caso da série
+## de taxas de inflação (IPCA).
+
+@
+
+
+\end{document}
+

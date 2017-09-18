@@ -1,0 +1,136 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage{amsmath}
+\usepackage[T1]{fontenc}
+\usepackage[portuguese]{babel}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{epstopdf}
+\usepackage{float}
+\usepackage{hyperref}
+
+
+\usepackage[left=2cm,right=2cm,top=1.5cm,bottom=1.5cm]{geometry}
+
+\author{André Portela Santos}
+\title{\textbf{Econometria II} \\  \bigskip Códigos da Aula 5}
+\date{}
+
+
+
+\begin{document}
+
+\maketitle
+
+\bigskip
+
+
+\section{Passeio aleatório}
+
+<<Codigo01, echo=T, results='asis',  fig.width=10, fig.height=5, fig.align='center', out.width=".75\\linewidth", warning=FALSE, message=FALSE, size='footnotesize'>>=
+
+# Aula 5
+ 
+## Pacotes
+list.of.packages <- c("forecast","ggplot2","xts","highfrequency","stargazer","hydroGOF")
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages)
+
+library("forecast")
+library("ggplot2")
+library("xts")
+library("highfrequency")
+library("hydroGOF")
+
+### Simulação de 100 realizações de um processo de passeio aleatório (random walk)
+
+x <- w <- rnorm(100)
+for (t in 2:100) x[t] <- x[t - 1] + w[t]
+plot(x, type = "l", main = "Passeio aleatório", xlab = '', ylab = '', bty='l')
+
+
+@
+
+
+\section{Passeio aleatório com tendência}
+
+<<Codigo02, echo=T, results='asis',  fig.width=10, fig.height=5, fig.align='center', out.width=".75\\linewidth", warning=FALSE, message=FALSE, size='footnotesize'>>=
+
+## Simula 100 realizações um passeio aleatório com tendência
+
+dates <- seq(1:100)
+set.seed(1)
+Zt <- rnorm(length(dates), mean=40, sd=20)
+TD <- (1:length(dates))^(1.9)/20
+Yt <- TD + Zt
+data <- data.frame(dates, Yt)
+plot(data, xlab='', ylab='', type= 'l', main='Passeio aleatório com tendência', bty='l')
+
+
+@
+
+
+\section{Teste ADF}
+
+<<Codigo03, echo=T, results='asis',  fig.width=10, fig.height=5, fig.align='center', out.width=".75\\linewidth", warning=FALSE, message=FALSE, size='footnotesize'>>=
+
+## Pacotes
+library(urca)
+library(stargazer)
+
+## Realiza o teste ADF para a série de preços da Petrobrás
+petr4 <- read.table('petr4.csv', header = TRUE, sep = ';', dec = ',')
+
+### Ordernar os dados de acordo com um vetor de datas
+petr4$data <- as.Date(petr4$data, format='%d/%m/%Y')
+
+## selecionamos a coluna dos preços de fechamento
+petr4 <- xts(petr4$fechamento, order.by = petr4$data)
+
+## Teste ADF com intercepto e tendência
+adf.t <- ur.df(petr4, type='trend', lags=3)
+table <- cbind(t(adf.t@teststat), adf.t@cval)
+stargazer(table, title='Teste ADF com intercepto e tendência')
+
+# Teste ADF com intercepto e drift
+adf.d <- ur.df(petr4, type='drift', lags=3)
+table <- cbind(t(adf.d@teststat), adf.d@cval)
+stargazer(table, title='Teste ADF com intercepto')
+
+# Teste ADF sem intercepto e sem tendência
+adf.n <- ur.df(petr4, type='none', lags=3)
+table <- cbind(t(adf.n@teststat), adf.n@cval)
+stargazer(table, title='Teste ADF sem intercepto e sem tendência')
+
+
+@
+
+
+\section{Teste ADF para os logretornos}
+
+<<Codigo04, echo=T, results='asis',  fig.width=10, fig.height=5, fig.align='center', out.width=".75\\linewidth", warning=FALSE, message=FALSE, size='footnotesize'>>=
+
+
+# Estima o teste sem termos determinísticos para a primeira dierença dos
+# logaritmos
+petr4 <- read.table('petr4.csv', header = TRUE, sep = ';', dec = ',')
+
+### Ordernar novamente os dados 
+petr4$data <- as.Date(petr4$data, format='%d/%m/%Y')
+petr4 <- xts(petr4, order.by = petr4$data)
+logretornos <- makeReturns(petr4$fechamento)
+
+## Refazemos o teste
+adf.n2 <- ur.df(logretornos, type='none', lags=3)
+table <- cbind(t(adf.n2@teststat), adf.n2@cval)
+stargazer(table, title='Teste ADF sem intercepto e sem tendência')
+@
+
+
+
+
+\end{document}
+
