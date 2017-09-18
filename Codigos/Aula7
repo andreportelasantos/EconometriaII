@@ -1,0 +1,111 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage{amsmath}
+\usepackage[T1]{fontenc}
+\usepackage[portuguese]{babel}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{epstopdf}
+\usepackage{float}
+\usepackage{hyperref}
+
+
+\usepackage[left=2cm,right=2cm,top=1.5cm,bottom=1.5cm]{geometry}
+
+\author{André Portela Santos}
+\title{\textbf{Econometria II} \\  \bigskip \emph{Códigos da aula 7}}
+\date{\today}
+
+
+\begin{document}
+
+\maketitle
+
+\bigskip
+
+
+\section*{1.1 Modelo ARCH(1)}
+
+
+<<Codigo01, echo=T, results='markup',  fig.width=10, fig.height=5, fig.align='center', out.width=".75\\linewidth", warning=FALSE, message=FALSE, size='footnotesize'>>=
+
+# Pacotes
+library(forecast)
+library(ggplot2)
+library(xts)
+library(highfrequency)
+library(fGarch)
+library(tseries)
+
+## Simula um processo ARCH(1) para T observações
+spec <- garchSpec(model = list(alpha = c(0.2), beta = 0))
+arch1 <- garchSim(spec, n = 10000)
+summary(arch1)
+
+ggtsdisplay(arch1)
+@
+
+\newpage
+\section*{1.2 Modelo ARCH(2)}
+<<Codigo02, echo=T, results='markup',  fig.width=10, fig.height=5, fig.align='center', out.width=".75\\linewidth", warning=FALSE, message=FALSE, size='footnotesize'>>=
+
+
+## Simula um processo ARCH(2)
+n <- 1100
+a <- c(0.1, 0.5, 0.2)  # ARCH(2) coefficients
+e <- rnorm(n)  
+x <- double(n)
+x[1:2] <- rnorm(2, sd = sqrt(a[1]/(1.0-a[2]-a[3]))) 
+for(i in 3:n)  # Generate ARCH(2) process
+{
+  x[i] <- e[i]*sqrt(a[1]+a[2]*x[i-1]^2+a[3]*x[i-2]^2)
+}
+x <- ts(x[101:1100])
+x.arch <- garch(x, order = c(0,2), trace = FALSE)  # Fit ARCH(2) 
+                      
+plot(x.arch)
+plot(x.arch$fitted.values[,1],main="Volatilidades do modelo ARCH(2)")
+@
+
+\section*{1.3 Modelo GARCH(1,1)}
+
+<<Codigo03, echo=T, results='markup', fig.width=10, fig.height=5, fig.align='center', out.width=".95\\linewidth", warning=FALSE, message=FALSE, size='footnotesize'>>=
+
+## Simula um processo GARCH(1,1)
+spec <- garchSpec(model = list())
+garch11 <- garchSim(spec, n = 10000)
+
+plot.ts(garch11, type="l", main="Simulação de um GARCH(1,1)", ylab='')
+
+
+@
+
+
+\section*{1.4 Modelo GARCH(1,1) para a série de retornos da Petrobrás}
+
+
+<<Codigo04, echo=T, results='markup', fig.width=10, fig.height=5, fig.align='center', out.width=".95\\linewidth", warning=FALSE, message=FALSE, size='footnotesize'>>=
+#Carregamos nossa mesa de dados
+petr4 <- read.table('petr4.csv', header = TRUE, sep = ';', dec = ',')
+
+# Ordernamos novamente os dados
+petr4$data <- as.Date(petr4$data, format='%d/%m/%Y')
+# petr4$data <- as.Date(petr4$data, format='%Y-%m-%d')
+petr4 <- xts(petr4, order.by = petr4$data)
+logretornos <- makeReturns(petr4$fechamento)*100
+
+# Estimamos o modelo
+garch <- garchFit(formula = ~garch(1,1), data = logretornos, title = "Garch(1,1)", trace = FALSE)
+
+# Plotamos
+plot(garch, which = 2)
+
+@
+
+
+
+\end{document}
+
