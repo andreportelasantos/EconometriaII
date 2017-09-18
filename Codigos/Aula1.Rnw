@@ -1,0 +1,164 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage{amsmath}
+\usepackage[T1]{fontenc}
+\usepackage[portuguese]{babel}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{epstopdf}
+\usepackage{float}
+\usepackage{hyperref}
+
+
+\usepackage[left=2cm,right=2cm,top=1.5cm,bottom=1.5cm]{geometry}
+
+\author{André Portela Santos}
+\title{\textbf{Econometria II} \\  \bigskip Códigos da Aula 1}
+\date{}
+
+
+\begin{document}
+
+\maketitle
+
+\bigskip
+
+
+\section{Simulação da lei dos grandes números}
+
+Vamos simular a lei dos grandes números para dados IID através do cálculo da média de sucessivos lançamentos de um dado de 6 lados.
+
+<<Codigo01, echo=T, results='asis',  fig.width=10, fig.height=5, fig.align='center', out.width=".75\\linewidth", warning=FALSE, message=FALSE, size='footnotesize'>>=
+
+die <- 1:6
+roll <- function(n) {
+	mean(sample(die, size = n, replace = TRUE))
+}
+plot(sapply(1:1000, roll), type = "l", xlab = 
+"Lançamentos", ylab = "Média")
+abline(h = 3.5, col = "red")
+
+@
+
+
+\section{Estatística descritiva para a série de retornos das ações da Petrobrás}
+
+Os códigos abaixo trazem estatísticas descritivas para a série de retornos (primeira diferença dos logarítmos) da ação da Petrobrás entre 2004 e 2012.
+
+<<Codigo02, echo=T, results='asis',  fig.width=10, fig.height=5, fig.align='center', out.width=".75\\linewidth", warning=FALSE, message=FALSE, size='footnotesize'>>=
+
+# Pacotes
+library(forecast)
+library(ggplot2)
+library(xts)
+library(highfrequency)
+library(moments)
+
+# Carregamos nosso database
+petr4 <- read.table('petr4.csv',header = TRUE, sep = ';', dec = ',')
+# Para baixar diretamente da web
+# petr4 <- read.table('https://www.dropbox.com/s/rwk1xlfw72364m4/petr4.csv?dl=1', 
+#                    header = TRUE, sep = ';', dec = ',')
+
+### Ordernar os dados de acordo com um vetor de datas
+petr4$data <- as.Date(petr4$data, format='%d/%m/%Y')
+
+petr4 <- xts(petr4, order.by = petr4$data)
+
+# calculamos os log-retornos de nossa série de preços
+logretornos <- makeReturns(petr4$fechamento)*100
+
+### Gráficos
+par(mar=c(2,2,2,2))
+par(mfrow=c(2,1))
+ts.plot(petr4$fechamento, xlab='', main='Preços de fechamento')
+ts.plot(logretornos, xlab='', main='Logretornos do preço de fechamento')
+@
+
+<<Codigo02b, echo=T, results='markup', fig.width=10, fig.height=5, fig.align='center', out.width=".95\\linewidth", warning=FALSE, message=FALSE, size='footnotesize'>>=
+
+### Estatística descritiva
+summary(logretornos)
+skewness(logretornos)
+kurtosis(logretornos)
+
+### Gráfico da densidade
+par(mfrow=c(1,1))
+d <- density(logretornos)
+plot(d,ylim=c(0,0.4),main = "Densidade dos log-retornos")
+xfit<-seq(min(logretornos),max(logretornos),length=length(logretornos)) 
+yfit<-dnorm(xfit,mean=0,sd=1) 
+lines(yfit)
+lines(xfit, yfit, col="blue", lwd=2)
+
+@
+
+\subsection{Estimadores de máxima verossimilhança}
+
+O códígo abaixo obtém estimadores de (quase) máxima verossimilhança para a série de log-retornos assumindo que os dados são condicionalmente normais.
+
+<<Codigo03, echo=T, results='markup',  fig.cap = '', fig.width=10, fig.height=5, fig.align='center', out.width=".95\\linewidth", warning=FALSE, message=FALSE, size='footnotesize'>>=
+
+### Obtém estimadores de máxima verossimilhança
+fn <- function(theta) {
+  sum ( 0.5*(logretornos - theta[1])^2/theta[2] + 0.5* log(theta[2]) )
+}
+nlm(fn, theta <- c(0,1), hessian=TRUE)
+
+
+@
+
+
+\section{Estatísticas para a série do IPCA}
+
+O código abaixo obtém estatísticas descritivas para a série de variação percentual do IPCA.
+
+<<Codigo04, echo=T, results='asis',  fig.width=10, fig.height=5, fig.align='center', out.width=".75\\linewidth", warning=FALSE, message=FALSE, size='footnotesize'>>=
+
+# Carregamos e tratamos nossa database
+IPCA <- ts(read.csv2('IPCA.csv', header = TRUE, sep = ';', dec = ',')[,2], 
+           start=c(1980,01), freq = 12)
+
+IPCA2 <- window(IPCA, start=c(2012,06))
+
+### Gráficos
+par(mar=c(2,2,2,2))
+par(mfrow=c(2,1))
+ts.plot(IPCA, xlab='', main='variação percentual mensal do IPCA: 1980 a 2017')
+ts.plot(IPCA2, xlab='', main='variação percentual mensal do IPCA: 2012 a 2017')
+@
+
+<<Codigo04b, echo=T, results='markup',  fig.cap = '', fig.width=10, fig.height=5, fig.align='center', out.width=".95\\linewidth", warning=FALSE, message=FALSE, size='footnotesize'>>=
+
+### Estatística descritiva
+summary(IPCA2)
+skewness(IPCA2)
+kurtosis(IPCA2)
+
+### Gráfico da densidade
+qplot(IPCA2, geom="density")
+
+@
+
+\subsection{Estimadores de máxima verossimilhança para a média e a variância}
+
+Obtém os estimadores de máxima verossimilhança para a média e a variância assumindo que os dados são condicionalmente normais.
+
+<<Codigo05, echo=T, results='markup',  fig.cap = '', fig.width=10, fig.height=5, fig.align='center', out.width=".95\\linewidth", warning=FALSE, message=FALSE, size='footnotesize'>>=
+
+data <- na.omit(IPCA2)
+fn <- function(theta) {
+  sum ( 0.5*(data - theta[1])^2/theta[2] + 0.5* log(theta[2]) )
+}
+nlm(fn, theta <- c(0,1), hessian=TRUE)
+
+@
+
+
+
+
+\end{document}
+
