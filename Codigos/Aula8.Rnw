@@ -1,0 +1,164 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage{amsmath}
+\usepackage[T1]{fontenc}
+\usepackage[portuguese]{babel}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{epstopdf}
+\usepackage{float}
+\usepackage{hyperref}
+
+
+\usepackage[left=2cm,right=2cm,top=1.5cm,bottom=1.5cm]{geometry}
+
+\author{André Portela Santos}
+\title{\textbf{Econometria II} \\  \bigskip \emph{Códigos da aula 8}}
+\date{\today}
+
+
+\begin{document}
+
+\maketitle
+
+\bigskip
+
+
+\section{Modelo VAR para inflação e desemprego nos EUA}
+
+No exemplo a seguir utilizaremos duas séries, o consumer price index (CPI) e a taxa de desemprego americana (UNRATE), retiradas através da base de dados do Quantmod
+
+<<Codigo01, echo=T, results='markup',  fig.width=10, fig.height=5, fig.align='center', out.width=".75\\linewidth", warning=FALSE, message=FALSE, size='footnotesize'>>=
+#Pacotes
+list.of.packages <- c("quantmod","tseries","xts","ggplot2","highfrequency","vars","forecast")
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages)
+library(quantmod)
+library(tseries)
+library(ggplot2)
+library(highfrequency)
+library(vars)
+library(forecast)
+
+#Capturamos a série do CPI americano no database do Quantmod
+getSymbols("CPIAUCSL", src = "FRED")
+autoplot(CPIAUCSL)
+
+#Calculamos a primeira diferença dos logs
+CPI <- log(CPIAUCSL)
+CPID <- diff(diff(CPI))
+autoplot(CPID)
+ndiffs(CPID,alpha = 0.1)
+
+#Capturamos a série da taxa de desemprego do Federal Economic Reserve Data (FRED)
+getSymbols('UNRATE',src='FRED') 
+autoplot(UNRATE)
+
+#Calculamos a primeira diferença dos logs
+unrate <- log(UNRATE)
+unrated <- diff(unrate)
+ndiffs(unrated)
+
+autoplot(unrated)
+
+#Unimos os dados
+nossovar <- na.exclude(merge(CPID, unrated))
+
+#Atribuimos nomes a nossas colunas
+colnames(nossovar) <- c('CPI', 'Taxa de desemprego')
+
+#Escolhemos nosso modelo
+VARselect(nossovar, lag.max=24)
+
+#Estimamos nosso VAR
+var <- VAR(nossovar, 4, type='both') 
+summary(var)
+
+
+#Gráficos
+par(mar=c(1,1,1,1))
+plot(var, names = "CPI")
+plot(predict(var,12))
+
+#Diagnóstico do ajuste do modelo baseado nos resíduos:
+serial.test(var, lags.pt = 16, type = "PT.asymptotic")
+normality.test(var)
+
+# Versão 2 do modelo VAR
+# participação civil
+getSymbols('CIVPART',src='FRED')
+autoplot(CIVPART)
+civpartd <- diff(diff(CIVPART))
+ndiffs(civpartd)
+autoplot(civpartd)
+nossovar2 <- na.exclude(merge(CPID,civpartd))
+#Escolhemos nosso modelo
+VARselect(nossovar2, lag.max=24)
+#Estimamos nosso VAR
+var2 <- VAR(nossovar2, 4) 
+summary(var2)
+
+@
+
+
+\section{Modelo Var(1) para o Ibovespa e SP500}
+<<Codigo02, echo=T, results='markup',  fig.width=10, fig.height=5, fig.align='center', out.width=".75\\linewidth", warning=FALSE, message=FALSE, size='footnotesize'>>=
+#Carregamos nossa base de dados
+ibsp <- read.table("https://www.dropbox.com/s/nxbpc8j7caxqkbl/ibov_sp500.csv?dl=1", header = TRUE, sep = ',', dec = '.')
+
+#Tratamos os dados classificando as datas e transformando em um objeto orientado ao tempo
+ibsp$Date <- as.Date(ibsp$Date, format='%m/%d/%Y')
+ibsp <- xts(ibsp, order.by = ibsp$Date)
+
+#Excluimos o vetor de datas desnecessário
+ibsp <- ibsp[,-1]
+
+#Calculamos os logretornos e aproveitamos para remover as datas que não possuiam dados
+logretornosibsp <- makeReturns(ibsp)
+colnames(logretornosibsp) <- c('Ibovespa', 'SP500')
+logretornosibsp <- na.omit(logretornosibsp)
+autoplot(logretornosibsp)
+
+#Calculamos nosso VAR(1)
+var1 <- VAR(logretornosibsp, 1, type='both') 
+
+summary(var1)
+@
+
+
+\section{Réplica do exemplo do artigo de Breitung, Bruggemann, e Lutkepohl (2004)}
+<<Codigo03, echo=T, results='markup',  fig.width=10, fig.height=5, fig.align='center', out.width=".75\\linewidth", warning=FALSE, message=FALSE, size='footnotesize'>>=
+#Carregamos nossa base de dados
+
+# Baixa dados
+data("Canada")
+summary(Canada)
+plot(Canada, nc = 2, xlab = "")
+
+# Checa número de diferenciações necessárias para tornar séries estacionárias
+library(forecast)
+ndiffs(Canada[,"prod"],test="adf",alpha = 0.1)
+ndiffs(Canada[,"e"],test="adf",alpha = 0.1)
+ndiffs(Canada[,"U"],test="adf",alpha = 0.1)
+ndiffs(Canada[,"rw"],test="adf",alpha = 0.1)
+
+# Estima modelo VAR(1)
+Canada <- Canada[, c("prod", "e", "U", "rw")]
+VAR1 <- VAR(Canada, p = 1, type = "both")
+VAR1
+
+# Detalhamento da equação para a variável e:
+summary(VAR1, equation = "e")
+
+# Gráficos
+par(mar=c(2,2,2,2))
+plot(VAR1, names = "e")
+plot(predict(VAR1))
+
+@
+
+\end{document}
+

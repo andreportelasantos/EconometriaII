@@ -1,0 +1,135 @@
+---
+title: "Códigos da Aula 9"
+author: "Andre Portela Santos"
+date: "18 de setembro de 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Função Impulso Resposta para o modelo VAR entre inflação e desemprego nos EUA
+
+```{r}
+list.of.packages <- c("quantmod","tseries","xts","ggplot2","highfrequency","vars","forecast")
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages)
+library(quantmod)
+library(tseries)
+library(ggplot2)
+library(highfrequency)
+library(vars)
+library(forecast)
+
+#Capturamos a série do CPI americano no database do Quantmod
+getSymbols("CPIAUCSL", src = "FRED")
+autoplot(CPIAUCSL)
+
+#Calculamos a segunda diferença dos logs
+CPI <- log(CPIAUCSL)
+CPID <- diff(diff(CPI))
+autoplot(CPID)
+
+#Capturamos a série da taxa de desemprego do Federal Economic Reserve Data (FRED)
+getSymbols('UNRATE',src='FRED') 
+autoplot(UNRATE)
+
+#Calculamos a primeira diferença dos logs
+unrate <- log(UNRATE)
+unrated <- diff(unrate)
+autoplot(unrated)
+
+#Unimos os dados
+nossovar <- na.exclude(merge(CPID, unrated))
+
+#Atribuimos nomes a nossas colunas
+colnames(nossovar) <- c('CPI', 'Desemprego')
+
+#Estimamos nosso VAR
+var <- VAR(nossovar, 4, type='both') 
+summary(var)
+
+#Função impulso resposta para a variável "CPID"
+VAR.IRF <- irf(var, response = "CPI", n.ahead = 12, boot = TRUE)
+plot(VAR.IRF)
+
+#Causalidade de Granger
+causality(var, cause = "CPI")
+causality(var, cause = "Desemprego")
+
+```
+
+
+# Réplica do artigo de Breitung, Bruggemann, e Lutkepohl (2004)
+
+Dados:
+
+- Produtividade do trabalho (diferen¸ ca dos logaritmos entre o PIB e o número de pessoas empregadas) - série prod
+- log do número de pessoas empregadas - série e
+- Taxa de desempenho - série U
+- salários reais - série rw
+
+```{r}
+
+#Carregamos nossa base de dados
+
+# Baixa dados
+data("Canada")
+summary(Canada)
+plot(Canada, nc = 2, xlab = "")
+
+# Checa número de diferenciações necessárias para tornar séries estacionárias
+library(forecast)
+ndiffs(Canada[,"prod"],test="adf",alpha = 0.1)
+ndiffs(Canada[,"e"],test="adf",alpha = 0.1)
+ndiffs(Canada[,"U"],test="adf",alpha = 0.1)
+ndiffs(Canada[,"rw"],test="adf",alpha = 0.1)
+
+# Estima modelo VAR(1)
+CanadaD <- diff(Canada[, c("prod", "e", "U", "rw")])
+VAR1 <- VAR(CanadaD, p = 1, type = "const")
+summary(VAR1)
+
+# Função impulso-resposta
+VAR.IRF <- irf(VAR1, response = "U", n.ahead = 48, boot = TRUE)
+plot(VAR.IRF)
+
+#Causalidade de Granger
+causality(VAR1, cause = "e")
+
+```
+
+# Modelo VAR para o Brasil: inflação, desemprego, taxa de juros, crescimento econômico 
+
+```{r}
+library(BETS)
+# taxa de desocupação
+desocup <- BETS.get("24369")
+desocup <- diff(desocup,differences = ndiffs(desocup,test="adf",alpha = 0.1))
+# IBC-BR
+ibcbr <- BETS.get("24364")
+ibcbr <- diff(ibcbr,differences = ndiffs(ibcbr,test="adf",alpha = 0.1))
+# selic meta
+selic <- BETS.get("4390")
+selic <- diff(selic)
+# IPCA
+ipca <- BETS.get("433")
+ipca <- diff(ipca)
+# merge
+dados <- ts.intersect(desocup,ibcbr,selic,ipca)
+plot(dados)
+# Estima modelo VAR(3)
+VAR.Brasil <- VAR(dados, p = 3, type = "const")
+summary(VAR.Brasil)
+
+# Função impulso-resposta sobre o IBC-BR
+VAR.IRF <- irf(VAR.Brasil, response = "ibcbr", n.ahead = 12, boot = TRUE)
+plot(VAR.IRF)
+
+#Causalidade de Granger sobre a inflação
+causality(VAR.Brasil, cause = "ipca")
+
+
+``` 
+
