@@ -1,5 +1,5 @@
 ---
-title: "Códigos da Aula 9"
+title: "CÃ³digos da Aula 9"
 author: "Andre Portela Santos"
 date: "18 de setembro de 2017"
 output: html_document
@@ -9,7 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Função Impulso Resposta para o modelo VAR entre inflação e desemprego nos EUA
+## FunÃ§Ã£o Impulso Resposta para o modelo VAR entre inflaÃ§Ã£o e desemprego nos EUA
 
 ```{r}
 list.of.packages <- c("quantmod","tseries","xts","ggplot2","highfrequency","vars","forecast")
@@ -22,20 +22,20 @@ library(highfrequency)
 library(vars)
 library(forecast)
 
-#Capturamos a série do CPI americano no database do Quantmod
+#Capturamos a sÃ©rie do CPI americano no database do Quantmod
 getSymbols("CPIAUCSL", src = "FRED")
 autoplot(CPIAUCSL)
 
-#Calculamos a segunda diferença dos logs
+#Calculamos a segunda diferenÃ§a dos logs
 CPI <- log(CPIAUCSL)
 CPID <- diff(diff(CPI))
 autoplot(CPID)
 
-#Capturamos a série da taxa de desemprego do Federal Economic Reserve Data (FRED)
+#Capturamos a sÃ©rie da taxa de desemprego do Federal Economic Reserve Data (FRED)
 getSymbols('UNRATE',src='FRED') 
 autoplot(UNRATE)
 
-#Calculamos a primeira diferença dos logs
+#Calculamos a primeira diferenÃ§a dos logs
 unrate <- log(UNRATE)
 unrated <- diff(unrate)
 autoplot(unrated)
@@ -50,7 +50,7 @@ colnames(nossovar) <- c('CPI', 'Desemprego')
 var <- VAR(nossovar, 4, type='both') 
 summary(var)
 
-#Função impulso resposta para a variável "CPID"
+#FunÃ§Ã£o impulso resposta para a variÃ¡vel "CPID"
 VAR.IRF <- irf(var, response = "CPI", n.ahead = 12, boot = TRUE)
 plot(VAR.IRF)
 
@@ -61,14 +61,14 @@ causality(var, cause = "Desemprego")
 ```
 
 
-# Réplica do artigo de Breitung, Bruggemann, e Lutkepohl (2004)
+# RÃ©plica do artigo de Breitung, Bruggemann, e Lutkepohl (2004)
 
 Dados:
 
-- Produtividade do trabalho (diferen¸ ca dos logaritmos entre o PIB e o número de pessoas empregadas) - série prod
-- log do número de pessoas empregadas - série e
-- Taxa de desempenho - série U
-- salários reais - série rw
+- Produtividade do trabalho (diferenÂ¸ ca dos logaritmos entre o PIB e o nÃºmero de pessoas empregadas) - sÃ©rie prod
+- log do nÃºmero de pessoas empregadas - sÃ©rie e
+- Taxa de desempenho - sÃ©rie U
+- salÃ¡rios reais - sÃ©rie rw
 
 ```{r}
 
@@ -79,7 +79,7 @@ data("Canada")
 summary(Canada)
 plot(Canada, nc = 2, xlab = "")
 
-# Checa número de diferenciações necessárias para tornar séries estacionárias
+# Checa nÃºmero de diferenciaÃ§Ãµes necessÃ¡rias para tornar sÃ©ries estacionÃ¡rias
 library(forecast)
 ndiffs(Canada[,"prod"],test="adf",alpha = 0.1)
 ndiffs(Canada[,"e"],test="adf",alpha = 0.1)
@@ -91,7 +91,7 @@ CanadaD <- diff(Canada[, c("prod", "e", "U", "rw")])
 VAR1 <- VAR(CanadaD, p = 1, type = "const")
 summary(VAR1)
 
-# Função impulso-resposta
+# FunÃ§Ã£o impulso-resposta
 VAR.IRF <- irf(VAR1, response = "U", n.ahead = 48, boot = TRUE)
 plot(VAR.IRF)
 
@@ -100,13 +100,18 @@ causality(VAR1, cause = "e")
 
 ```
 
-# Modelo VAR para o Brasil: inflação, desemprego, taxa de juros, crescimento econômico 
+# Modelo VAR para o Brasil: inflaÃ§Ã£o, desemprego, taxa de juros, crescimento econÃ´mico 
 
 ```{r}
 library(BETS)
-# taxa de desocupação
+
+# Baixa dados
+# taxa de desocupaÃ§Ã£o (atualizada)
 desocup <- BETS.get("24369")
 desocup <- diff(desocup,differences = ndiffs(desocup,test="adf",alpha = 0.1))
+# taxa de desemprego (desativada em 2016)
+desemp <- BETS.get("10777")
+desemp <- diff(desemp)
 # IBC-BR
 ibcbr <- BETS.get("24364")
 ibcbr <- diff(ibcbr,differences = ndiffs(ibcbr,test="adf",alpha = 0.1))
@@ -116,20 +121,24 @@ selic <- diff(selic)
 # IPCA
 ipca <- BETS.get("433")
 ipca <- diff(ipca)
-# merge
+
+
+# Modelo VAR(3) usando taxa de desocupaÃ§Ã£o
 dados <- ts.intersect(desocup,ibcbr,selic,ipca)
 plot(dados)
-# Estima modelo VAR(3)
 VAR.Brasil <- VAR(dados, p = 3, type = "const")
 summary(VAR.Brasil)
-
-# Função impulso-resposta sobre o IBC-BR
 VAR.IRF <- irf(VAR.Brasil, response = "ibcbr", n.ahead = 12, boot = TRUE)
 plot(VAR.IRF)
-
-#Causalidade de Granger sobre a inflação
 causality(VAR.Brasil, cause = "ipca")
 
 
+# Modelo VAR(3) usando taxa de desemprego 
+dados2 <- ts.intersect(desemp,ibcbr,selic,ipca)
+VAR.Brasil2 <- VAR(dados2, p = 3, type = "const")
+summary(VAR.Brasil2)
+VAR.IRF2 <- irf(VAR.Brasil2, response = "ibcbr", n.ahead = 12, boot = TRUE)
+plot(VAR.IRF2)
+causality(VAR.Brasil2, cause = "ipca")
 ``` 
 
