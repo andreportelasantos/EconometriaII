@@ -1,0 +1,70 @@
+---
+title: "Códigos da Aula 10"
+subtitle: "Econometria II"
+author: "Andre Portela Santos"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo=FALSE}
+list.of.packages <- c("quantmod","tseries","xts","ggplot2","highfrequency","vars","forecast")
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages)
+library(quantmod)
+library(tseries)
+library(ggplot2)
+library(highfrequency)
+library(vars)
+library(forecast)
+```
+
+# Testando cointegração para dados macroeconômicos brasileiros: inflação, desemprego, taxa de juros, crescimento econômico, dolar
+
+```{r}
+library(BETS)
+
+# Baixa dados
+# taxa de desocupação (atualizada)
+desocup <- BETS.get("24369")
+desocupD <- diff(desocup)
+#desocup <- diff(desocup,differences = ndiffs(desocup,test="adf",alpha = 0.1))
+# taxa de desemprego (desativada em 2016)
+desemp <- BETS.get("10777")
+desempD <- diff(desemp)
+# IBC-BR
+ibcbr <- BETS.get("24364")
+ibcbrD <- diff(ibcbr,differences = ndiffs(ibcbr,test="adf",alpha = 0.1))
+# selic meta
+selic <- BETS.get("4390")
+selicD <- diff(selic)
+# IPCA
+ipca <- BETS.get("433")
+ipcaD <- diff(ipca)
+# Dolar
+dolar <- BETS.get("3696")
+dolarD <- diff(dolar)
+
+
+# Modelo VAR(3) usando taxa de desemprego 
+dados.diff <- ts.intersect(desempD,ibcbrD,selicD,ipcaD,dolarD)
+VAR.Brasil <- VAR(dados.diff, p = 3, type = "const")
+summary(VAR.Brasil)
+
+# Teste do traço para identificar o número de vetores de cointegração presentes nos dados:
+dados <- ts.intersect(desemp,ibcbr,selic,ipca,dolar)
+summary(ca.jo(dados, type = "trace", ecdet = "const",K = 3, spec = "transitory", season = 12))
+
+# Estima modelo VEC
+vecm <- ca.jo(dados, type = "trace", ecdet = "const", K = 3, spec = "transitory", season = 12)
+vecm.r4 <- cajorls(vecm, r = 4)
+summary(vecm.r4$rlm)
+
+# Previsão
+plot(predict(vec2var(vecm)))
+
+
+``` 
+
