@@ -10,7 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r, echo=FALSE}
-list.of.packages <- c("quantmod","tseries","xts","ggplot2","highfrequency","vars","forecast")
+list.of.packages <- c("quantmod","tseries","xts","ggplot2","highfrequency","vars","forecast","ustyc","BETS","MTS")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages)
 library(quantmod)
@@ -19,13 +19,34 @@ library(ggplot2)
 library(highfrequency)
 library(vars)
 library(forecast)
+library(ustyc)
+library(BETS)
+library(MTS)
+```
+
+# Testando cointegração entre maturidades da estrutura a termo das taxas de juros dos EUA
+
+```{r}
+# Baixa curva de juros dos EUA entre 2014 e 2017
+juros = do.call(rbind,lapply(2014:2017,function(x) getYieldCurve(x)$df))
+juros <- juros[juros$BC_1MONTH!=0,] # Remove valores 0 da base
+datas <- as.Date(rownames(juros),format='%Y-%m-%d')
+juros.xts <- xts(juros, order.by = datas)
+plot(juros.xts)
+
+# Modelo VEC entre maturidades 
+dados <- data.frame(MAT1 = juros$BC_1MONTH, MAT2 = juros$BC_3MONTH)
+# testa cointegração
+summary(ca.jo(dados, type = "trace", ecdet = "none",K = 3, spec = "transitory"))
+# Estima modelo VEC
+vecm <- ca.jo(dados, type = "trace", ecdet = "none", K = 3, spec = "transitory")
+vecm <- cajorls(vecm, r = 1)
+summary(vecm$rlm)
 ```
 
 # Testando cointegração para dados macroeconômicos brasileiros: inflação, desemprego, taxa de juros, crescimento econômico, dolar
 
 ```{r}
-library(BETS)
-
 # Baixa dados
 # taxa de desocupação (atualizada)
 desocup <- BETS.get("24369")

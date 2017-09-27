@@ -1,5 +1,5 @@
 ---
-title: "C√≥digos da Aula 9"
+title: "CÛdigos da Aula 9"
 author: "Andre Portela Santos"
 date: "18 de setembro de 2017"
 output: html_document
@@ -9,9 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Fun√ß√£o Impulso Resposta para o modelo VAR entre infla√ß√£o e desemprego nos EUA
-
-```{r}
+```{r, echo=FALSE}
 list.of.packages <- c("quantmod","tseries","xts","ggplot2","highfrequency","vars","forecast")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages)
@@ -21,21 +19,26 @@ library(ggplot2)
 library(highfrequency)
 library(vars)
 library(forecast)
+```
 
-#Capturamos a s√©rie do CPI americano no database do Quantmod
+
+## FunÁ„o Impulso Resposta para o modelo VAR entre inflaÁ„o e desemprego nos EUA
+
+```{r}
+#Capturamos a sÈrie do CPI americano no database do Quantmod
 getSymbols("CPIAUCSL", src = "FRED")
 autoplot(CPIAUCSL)
 
-#Calculamos a segunda diferen√ßa dos logs
+#Calculamos a segunda diferenÁa dos logs
 CPI <- log(CPIAUCSL)
 CPID <- diff(diff(CPI))
 autoplot(CPID)
 
-#Capturamos a s√©rie da taxa de desemprego do Federal Economic Reserve Data (FRED)
+#Capturamos a sÈrie da taxa de desemprego do Federal Economic Reserve Data (FRED)
 getSymbols('UNRATE',src='FRED') 
 autoplot(UNRATE)
 
-#Calculamos a primeira diferen√ßa dos logs
+#Calculamos a primeira diferenÁa dos logs
 unrate <- log(UNRATE)
 unrated <- diff(unrate)
 autoplot(unrated)
@@ -50,7 +53,7 @@ colnames(nossovar) <- c('CPI', 'Desemprego')
 var <- VAR(nossovar, 4, type='both') 
 summary(var)
 
-#Fun√ß√£o impulso resposta para a vari√°vel "CPID"
+#FunÁ„o impulso resposta para a vari·vel "CPID"
 VAR.IRF <- irf(var, response = "CPI", n.ahead = 12, boot = TRUE)
 plot(VAR.IRF)
 
@@ -61,14 +64,14 @@ causality(var, cause = "Desemprego")
 ```
 
 
-# R√©plica do artigo de Breitung, Bruggemann, e Lutkepohl (2004)
+# RÈplica do artigo de Breitung, Bruggemann, e Lutkepohl (2004)
 
 Dados:
 
-- Produtividade do trabalho (diferen¬∏ ca dos logaritmos entre o PIB e o n√∫mero de pessoas empregadas) - s√©rie prod
-- log do n√∫mero de pessoas empregadas - s√©rie e
-- Taxa de desempenho - s√©rie U
-- sal√°rios reais - s√©rie rw
+- Produtividade do trabalho (diferen∏ ca dos logaritmos entre o PIB e o n˙mero de pessoas empregadas) - sÈrie prod
+- log do n˙mero de pessoas empregadas - sÈrie e
+- Taxa de desempenho - sÈrie U
+- sal·rios reais - sÈrie rw
 
 ```{r}
 
@@ -79,7 +82,7 @@ data("Canada")
 summary(Canada)
 plot(Canada, nc = 2, xlab = "")
 
-# Checa n√∫mero de diferencia√ß√µes necess√°rias para tornar s√©ries estacion√°rias
+# Checa n˙mero de diferenciaÁıes necess·rias para tornar sÈries estacion·rias
 library(forecast)
 ndiffs(Canada[,"prod"],test="adf",alpha = 0.1)
 ndiffs(Canada[,"e"],test="adf",alpha = 0.1)
@@ -91,7 +94,7 @@ CanadaD <- diff(Canada[, c("prod", "e", "U", "rw")])
 VAR1 <- VAR(CanadaD, p = 1, type = "const")
 summary(VAR1)
 
-# Fun√ß√£o impulso-resposta
+# FunÁ„o impulso-resposta
 VAR.IRF <- irf(VAR1, response = "U", n.ahead = 48, boot = TRUE)
 plot(VAR.IRF)
 
@@ -100,13 +103,13 @@ causality(VAR1, cause = "e")
 
 ```
 
-# Modelo VAR para o Brasil: infla√ß√£o, desemprego, taxa de juros, crescimento econ√¥mico 
+# Modelo VAR para o Brasil: inflaÁ„o, desemprego, taxa de juros, crescimento econÙmico, NFSP
 
 ```{r}
 library(BETS)
 
 # Baixa dados
-# taxa de desocupa√ß√£o (atualizada)
+# taxa de desocupaÁ„o (atualizada)
 desocup <- BETS.get("24369")
 desocup <- diff(desocup,differences = ndiffs(desocup,test="adf",alpha = 0.1))
 # taxa de desemprego (desativada em 2016)
@@ -123,7 +126,7 @@ ipca <- BETS.get("433")
 ipca <- diff(ipca)
 
 
-# Modelo VAR(3) usando taxa de desocupa√ß√£o
+# Modelo VAR(3) usando taxa de desocupaÁ„o
 dados <- ts.intersect(desocup,ibcbr,selic,ipca)
 plot(dados)
 VAR.Brasil <- VAR(dados, p = 3, type = "const")
@@ -139,6 +142,8 @@ VAR.Brasil2 <- VAR(dados2, p = 3, type = "const")
 summary(VAR.Brasil2)
 VAR.IRF2 <- irf(VAR.Brasil2, response = "ibcbr", n.ahead = 12, boot = TRUE)
 plot(VAR.IRF2)
-causality(VAR.Brasil2, cause = "ipca")
+causality(VAR.Brasil2, cause = "desemp")
+
+
 ``` 
 
