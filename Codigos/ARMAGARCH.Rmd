@@ -1,0 +1,171 @@
+---
+title: "Estimação e simulação de Monte-Carlo com modelo ARMA(1,1)-GARCH(1,1)"
+subtitle: "Econometria II"
+author: "Andre Portela Santos"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo=FALSE}
+list.of.packages <- c("BatchGetSymbols","ggplot2","fGarch","gridExtra","forecast")
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages)
+library(BatchGetSymbols)
+library(ggplot2)
+library(fGarch)
+library(gridExtra)
+library(forecast)
+options(scipen=999)
+```
+
+# Função para estimar parâmetros de um modelo ARMA(1,1)-GARCH(1,1) sem constante na média condicional utilizando máxima verossimilhança condicional
+
+```{r, echo=FALSE}
+# Argumentos da função:
+# params: vetor de parâmetros 
+# data: série temporal
+# np: ordem AR
+# nq: ordem MA
+# nr: ordem ARCH
+# ns: ordem GARCH
+ARMAGARCH <- function(params,data,np,nq,nr,ns) {
+  T <- length(data)
+  errors <- integer(T)
+  sigma2 <- integer(T)
+  m <- 1+max(np,nq,nr,ns)
+  sigma2[1:m] <- var(data)
+  for (t in m:T) {
+    # Recursão AR
+    errors[t] <- data[t]
+    for (i in 1:np) {
+      errors[t] <- errors[t] - params[i]*data[t-i]
+    }
+    # Recursão MA
+    for (i in 1:nq) {
+      errors[t] <- errors[t] - params[np+i]*errors[t-i]
+    }
+    # Recursão ARCH
+    sigma2[t] <- params[np+nq+1]
+    for (i in 1:nr) {
+      sigma2[t] <- sigma2[t] + params[np+nq+1+i]*errors[t-i]^2
+    }
+    # Recursão GARCH
+    for (i in 1:ns) {
+      sigma2[t] <- sigma2[t] + params[np+nq+nr+1+i]*sigma2[t-i]
+    }
+  }
+  verossim <- 0.5*(2*log(sqrt(sigma2)) + log(sigma2) + errors^2/sigma2 + log(2*pi))
+  return(list(LLF=sum(verossim),sigma2=sigma2,residuals=errors/sqrt(sigma2)))
+}
+
+# Parâmetros iniciais da estimação
+init.params <- c(0.1,0.1,0.1,0.1,0.5)
+# Define restrições
+ui <- rbind(c(0,0,1,0,0),c(0,0,0,1,0),c(0,0,0,0,1),c(0,0,0,-1,-1))
+ci <- c(0,0,0,-1)
+# Helper para maximizar a função verossimilhança condicional
+ARMAGARCH.optim <- function(params,data,np,nq,nr,ns) {
+  ARMAGARCH(params,data,np,nq,nr,ns)$LLF
+}
+```
+
+# Estima parâmetros do modelo ARMA(1,1)-GARCH(1,1) para as séries de retorno das ações da Aaple (AAPL)
+
+```{r, echo=FALSE}
+# Baixa últimos 1500 dados mais recentes
+my.ticker <- c('AAPL')
+first.date <- Sys.Date()-1500
+last.date <- Sys.Date()
+l.out <- BatchGetSymbols(tickers = my.ticker,first.date = first.date,last.date = last.date)
+returns <- data.frame(retornos=diff(log(l.out$df.tickers$price.adjusted))*100,datas=l.out$df.tickers$ref.date[2:l.out$df.control$total.obs])
+
+# Exibe parâmetros estimados
+resultados <- constrOptim(init.params,ARMAGARCH.optim,data=returns[,1],np=1,nq=1,nr=1,ns=1,grad=NULL,ui=ui,ci=ci)
+print(resultados$par)
+
+# Retorna variáveis e avalia qualidade do ajuste
+resultados.finais <- ARMAGARCH(resultados$par,data=returns[,1],np=1,nq=1,nr=1,ns=1)
+df <- data.frame(returns,sigma2=resultados.finais$sigma2,residuals=resultados.finais$residuals)
+
+# Faz gráfico 
+require(gridExtra)
+require(forecast)
+p1 <- ggplot(data = returns, aes(x = datas, y = retornos))
+p1 <- p1 + geom_line()
+p1 <- p1 + labs(x = 'Dates', y = 'Retornos')
+
+p2 <- ggplot(data = df, aes(x = datas, y = sqrt(sigma2)))
+p2 <- p2 + geom_line()
+p2 <- p2 + labs(x = 'Dates', y = 'Desvio padrão condicional')
+
+p3 <- ggAcf(df$residuals^2, main="ACF do quadrado dos resíduos padronizados")
+
+grid.arrange(p1, p2, p3, ncol=1)
+```
+
+# Compara com os parâmetros estimados através da biblitoeca fGarch do R
+
+```{r, echo=FALSE}
+# Estima modelo
+resultados.finais2 <- garchFit(formula = ~ arma(1,1) + garch(1, 1), data = returns[,1], cond.dist = c("QMLE"), include.mean = F)
+
+# Compara a verossimilhança obtida com código próprio e com pacote do R
+LLF.meu.codigo <- print(-ARMAGARCH(resultados$par,data=returns[,1],np=1,nq=1,nr=1,ns=1)$LLF)
+LLF.fGarch <- print(-ARMAGARCH(c(0.0206345,-0.0062683,0.2994673,0.0862977,0.7732459),data=returns[,1],np=1,nq=1,nr=1,ns=1)$LLF)
+```
+
+# Experimento de monte carlo para testar a função própria
+
+```{r, echo=FALSE}
+# Função para simular dados do modelo ARMA(1,1)-GARCH(1,1) (sem constante na média conditional)
+ARMAGARCH.simulate <- function(T,ar,ma,omega,alpha,beta){
+  epsilon <- rnorm(T, mean=0, sd=1)
+  yt <- integer(T)
+  ht <- integer(T)
+  at <- integer(T)
+  ht[1] <- omega/(1-alpha-beta)
+  at[1] <- epsilon[1]*sqrt(ht[1])
+  for (i in 2:T) {
+    # variância condicional
+    ht[i] <- omega + alpha*at[i-1]^2 + beta*ht[i-1]
+    # atualiza at
+    at[i] <- epsilon[i]*sqrt(ht[i])
+    # média condicional
+    yt[i] <- ar*yt[i-1] + ma*at[i-1] + at[i]
+    
+  }
+  return(list(data=yt,ht=ht))
+}
+# Função para rodar experimento Monte Carlo
+MC.ARMAGARCH <- function(N.sim) {
+  param.matrix <- matrix(ncol=5,nrow=N.sim)
+  colnames(param.matrix) <- c("AR","MA","omega","alpha","beta")
+  for (i in 1:N.sim) {
+    set.seed(i+1)
+    print(i)
+    sim.data <- ARMAGARCH.simulate(1000,0.2,-0.1,0.2,0.05,0.85)$data
+    param.sim <- constrOptim(init.params,ARMAGARCH.optim,data=sim.data,np=1,nq=1,nr=1,ns=1,grad=NULL,ui=ui,ci=ci)$par
+    param.matrix[i,] <- param.sim
+  }
+  return(param.matrix)
+}
+# Executa 1000 simulações
+MC.params <- MC.ARMAGARCH(1000)
+# Histograma dos parâmetros
+library(reshape2)
+library(ggplot2)
+d <- melt(MC.params)
+ggplot(d,aes(x = value)) + 
+  facet_wrap(~Var2,scales = "free_x") + 
+  geom_histogram()
+# Estatística descriptiva dos parâmetros
+summary(MC.params)
+
+```
+
+
+
+
