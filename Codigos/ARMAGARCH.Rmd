@@ -10,7 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r, echo=FALSE}
-list.of.packages <- c("BatchGetSymbols","ggplot2","fGarch","gridExtra","forecast")
+list.of.packages <- c("BatchGetSymbols","ggplot2","fGarch","gridExtra","forecast","DescTools")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages)
 library(BatchGetSymbols)
@@ -18,6 +18,7 @@ library(ggplot2)
 library(fGarch)
 library(gridExtra)
 library(forecast)
+library(DescTools)
 options(scipen=999)
 ```
 
@@ -57,8 +58,8 @@ ARMAGARCH <- function(params,data,np,nq,nr,ns) {
       sigma2[t] <- sigma2[t] + params[np+nq+nr+1+i]*sigma2[t-i]
     }
   }
-  verossim <- 0.5*(2*log(sqrt(sigma2)) + log(sigma2) + errors^2/sigma2 + log(2*pi))
-  return(list(LLF=sum(verossim),sigma2=sigma2,residuals=errors/sqrt(sigma2)))
+  verossim <- 0.5*(sum(log(sigma2)) + sum((errors^2)/sigma2)  +  T*log(2*pi));
+  return(list(LLF=verossim,sigma2=sigma2,residuals=errors/sqrt(sigma2)))
 }
 
 # Parâmetros iniciais da estimação
@@ -146,7 +147,7 @@ MC.ARMAGARCH <- function(N.sim) {
   for (i in 1:N.sim) {
     set.seed(i+1)
     print(i)
-    sim.data <- ARMAGARCH.simulate(1000,0.2,-0.1,0.2,0.05,0.85)$data
+    sim.data <- ARMAGARCH.simulate(1000,0.2,-0.1,0.2,0.1,0.85)$data
     param.sim <- constrOptim(init.params,ARMAGARCH.optim,data=sim.data,np=1,nq=1,nr=1,ns=1,grad=NULL,ui=ui,ci=ci)$par
     param.matrix[i,] <- param.sim
   }
@@ -163,6 +164,8 @@ ggplot(d,aes(x = value)) +
   geom_histogram()
 # Estatística descriptiva dos parâmetros
 summary(MC.params)
+
+
 
 ```
 
