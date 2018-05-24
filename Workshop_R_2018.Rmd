@@ -1,0 +1,414 @@
+---
+title: "Análise de dados socioeconômicos e financeiros no R"
+subtitle: "I Congresso de Economia da UFSC"
+author: "André Portela Santos"
+date: "25 de maio de 2018"
+output: 
+  slidy_presentation:
+    font_adjustment: -1
+    highlight: pygments
+    fig_width: 7
+    fig_height: 5
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,fig.align="center")
+```
+
+## Porque escolher o `R` para analisar dados econômicos e financeiros?
+
+- R é uma plataforma madura e estável, continuamente melhorada e utilizada intensamente na indústria.
+		
+- Aprender R é fácil.
+		
+- É compatível com diferentes sistemas operacionais e pode interagir com diferentes linguagens de programação
+		
+- Dezenas de pacotes que permitem acessar, manipular, transformar, visualizar e modelar dados.
+
+## Bibliografia Recomendada
+
+- Using R for Introductory Econometrics
+
+![<http://www.urfie.net/read.html>](C:/Dropbox/Documentos/Docencia/R/Material didático/Figuras/livro1.png){fig.align="center"}
+
+## Bibliografia Recomendada
+
+- Processing and Analyzing Financial Data with R:
+
+![<https://msperlin.github.io/pafdR/>](C:/Dropbox/Documentos/Docencia/R/Material didático/Figuras/livro2.png){fig.align="center"}
+
+## Bibliografia Recomendada
+
+- Applied Econometrics with R:
+
+![](C:/Dropbox/Documentos/Docencia/R/Material didático/Figuras/livro3.png){fig.align="center"}
+
+## Vale muito a pena olhar estes pacotes
+
+- Pacotes para acesso a dados econômicos e financeiros
+
+-- BETS
+
+-- quantmod
+
+-- BatchGetSymbols
+
+-- finreportr 
+
+-- tidyquant 
+
+-- GetHFData
+
+-- GetTDData
+
+-- ustyc
+
+-- Quandl
+
+-- Rbitcoin
+
+-- ...
+
+## Vale muito a pena olhar estes pacotes
+
+- Pacotes para visualização e análise de dados
+
+-- ggplot2
+
+-- psych
+
+-- MASS
+
+-- corrplot
+
+-- stargazer
+
+
+- Pacotes para processamento e manipulação de dados
+
+-- data.table
+
+-- dplyr
+
+-- tidyr
+
+-- xlsx
+
+-- readxl
+
+-- readr
+
+-- xts
+
+-- lubridate
+
+-- zoo
+
+-- highfrequency
+
+-- tseries
+
+-- reshape2
+
+- Pacotes para estimação de modelos
+
+-- plm
+
+-- vars
+
+-- urca
+
+-- forecast
+
+-- fGarch
+
+## Instalando pacotes
+
+- Antes de usar qualquer pacote, é necessário instalar e solicitar seu uso.
+
+- O chunk abaixo verifica se alguns pacotes úteis estão instalados. Caso não estejam,
+fazemos a instalação.
+
+```{r, echo=TRUE, message=FALSE}
+list.of.packages <- c("readxl","xts","highfrequency","fGarch","tseries","BatchGetSymbols",
+                      "gridExtra","DescTools","reshape2","vars","quantmod","ustyc",
+                      "plm","vars","forecast","BETS","GetHFData","GetTDData","ggplot2","readr",
+                      "psych","MASS","corrplot","xlsx","gplots","stargazer","tidyr",
+                      "stringr")
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages)
+```
+
+
+## Exemplo 1: Dados do PIB municipal e arrecadação de tributos municipais
+
+
+- Vamos trabalhar com uma base de dados (já pré-formatada) contendo dados
+do PIB municipal e arrecadação de tributos (IPTU, ISS, ITBI) para municípios
+com mais de 150.000 habitantes.
+
+```{r,echo=TRUE, message=FALSE, warning=FALSE, cache=FALSE, results=FALSE, comment=FALSE}
+dados <- read.table("http://www.dropbox.com/s/8wuobh332sbcg18/Arrecadacao.dat?dl=1", header=TRUE)
+options(scipen=999) # remove notação científica
+```
+
+***
+
+- Visualização da base de dados com `ggplot`
+
+-- Gráfico de barras do PIB dos municípios de SC:
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+library(ggplot2)
+ggplot(data=subset(dados,Estado=="SC"), aes(x=Municipio,y = PIB)) + geom_bar(stat = "identity",color="blue", fill="blue")
+```
+
+***
+
+-- Mesmo gráfico anterior, só que ano a ano:
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+library(ggplot2)
+ggplot(data=subset(dados,Estado=="SC"), aes(x=Municipio,y = PIB)) + geom_bar(stat = "identity",color="blue", fill="blue") + facet_wrap(facets = ~Ano)
+```
+
+***
+
+-- Histograma da população de todos os estados:
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+ggplot(data=dados,aes(POPULAÇÃO)) + geom_histogram(bins = 50) + xlim(0, 2e+06)
+```
+
+***
+
+--Versão *"fashion"* do Histograma da população de todos os estados:
+```{r,echo=TRUE, message=FALSE, warning=FALSE}
+ggplot(data=dados, aes(POPULAÇÃO,fill = Estado)) + geom_histogram(bins = 50) + xlim(0, 2e+06)
+```
+
+***
+
+-- Boxplot da população dos 3 estados do Sul:
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+ggplot(data=subset(dados,Estado==c("SC","PR","RS")), aes(x=Estado,y=POPULAÇÃO)) + geom_boxplot()
+```
+
+***
+
+-- Gráfico de dispersão entre PIB e população, com linha de tendência e intervalo de confiança:
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+ggplot(data=dados, aes(x=POPULAÇÃO, y=PIB)) + geom_point(shape=1) + xlim(0, 2e+06) + ylim(0,1e+11) + geom_smooth()
+```
+
+***
+
+- Estatística descritiva dos dados de população, PIB, IPTU, ISS,ITBI, **ano a ano**:
+```{r,echo=TRUE, message=FALSE, warning=FALSE}
+library('psych')
+describeBy(dados[,4:8],dados$Ano)
+```
+
+***
+
+- Visualização da correlação entre as variáveis da base de dados
+
+-- A correlação consiste na normalização da covariância pelo produto dos desvios padrões:
+
+$$\rho =\quad \frac { cov(X,Y) }{ { \sigma  }_{ X }\sigma _{ Y } } \quad \quad \quad \quad \quad \quad \quad -1<\rho <1$$
+
+-- Essa expressão é conhecida como coeficiente de **correlação de Pearson**: mede o grau de associação linear entre as variáveis, as quais são por hipótese normalmente distribuidas.
+
+
+```{r,echo=TRUE, message=FALSE, warning=FALSE}
+cor(subset(dados[,3:8],Ano=="2015"),method = c("pearson"))
+```
+
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+library('corrplot')
+corrplot(cor(dados[,4:8],method = c("spearman")),method = "circle")
+```
+
+
+## Exemplo 2: Análise dos dados do IDEB dos municípios Brasileiros
+
+- Acessaremos uma planilha com a nota do IDEB da 8º série dos municípios brasileiros em 2011, 2013 e 2015 e cruzaremos essas informações com os seguintes dados de indicadores de qualidade na educação fornecidos pelo INEP bem como dados socioeconômicos:
+
+-- Número médio de horas-aula
+
+-- Percentual de docentes com curso superior
+
+-- Taxa de distorção idade/série
+
+-- Número médio de alunos por turma
+
+-- PIB per capita municipal
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+library(readxl)
+tmp <- tempfile(fileext=".xlsx")
+download.file("https://www.dropbox.com/s/jv6lxhytzvurq53/planilha_IDEB_workshop_R_2018.xlsx?dl=1",destfile=tmp, mode="wb")
+dados2 <- read_excel(tmp, sheet=1, col_names = TRUE,col_types=NULL,na="",skip=0)
+dados2$ideb_8 <- as.numeric(dados2$ideb_8)
+```
+
+
+***
+
+- Visualiza a heterogeneidade das notas do IDEB entre regiões, anos e UFs
+
+```{r, echo=TRUE, warning=FALSE, message=FALSE}
+library(gplots)
+plotmeans(ideb_8 ~ regiao, main="Heterogeneidade entre as regiões", data=dados2)
+plotmeans(ideb_8 ~ ano, main="Heterogeneidade entre os anos", data=dados2)
+plotmeans(ideb_8 ~ uf, main="Heterogeneidade entre as UFs", data=dados2)
+```
+
+
+***
+
+_ Vamos estimar um modelo de regressão para avaliar a associação entre variáveis socioeconômicas e educacionais e a nota no IDEB EM 2015.
+\begin{multline}
+			\text{Nota IDEB}_{i}=\beta_0+\beta_1\text{atu}_{i}+\beta_2\text{dsu}_{i}+\beta_3\text{dist}_{i}+\\
+			\beta_4\text{horas}_{i}+\beta_5\text{reprov}_{i}+\beta_6\text{aband}_{i}+\beta_7\ln \text{PIBpc}_{i}+a_i+\epsilon_{i}
+\end{multline}
+
+```{r, echo=TRUE, warning=FALSE, message=FALSE}
+library('stargazer')
+modelo <- lm(ideb_8~atu_8+ha_8+dist_8+dsu_8+reprov_8+aband_8+log(PIBpc),data=subset(dados2,ano=="2015"))
+stargazer(modelo,type = "text")
+```
+
+
+## Exemplo 3: Variáveis macroeconômicas importadas diretamente da internet
+
+- Biblioteca BETS
+
+-- A biblioteca BETS (Brazilian Economic Time Series) fornece, de maneira descomplicada, as mais relevantes séries temporais econômicas do Brasil.
+
+-- As séries presentes na base de dados do pacote são produzidas por três importantes e respeitados centros: o Banco central do Brasil (BACEN), o Instituto Brasileiro de Geografia e Estatística (IBGE) e o Instituto Brasileiro de Economia da Fundação Getúlio Vargas (FGV/IBRE).
+
+```{r, echo=TRUE, warning=FALSE, message=FALSE}
+# Procura série do IBC-BR
+library(BETS)
+BETS.search(description = "IBC-BR", lang = "pt", view = F)
+```
+
+```{r, echo=TRUE, warning=FALSE, message=FALSE}
+# Pega a série 24364
+library(BETS)
+data <- BETS.get("24364")
+plot(data)
+```
+
+```{r, echo=TRUE, warning=FALSE, message=FALSE}
+# Faz previsões
+library(forecast)
+fit <- auto.arima(data, max.order=12, max.d=1)
+future = forecast(fit, h = 12)
+future
+plot(future)
+```
+
+
+***
+
+## Exemplo 4: Variáveis financeiras importadas diretamente da internet
+
+- Biblioteca `BatchGetSymbols`: baixa dados históricos de ações 
+
+-- Baixa a cotação das ações da Petrobrás nos últimos 100 dias
+
+```{r, echo=TRUE, warning=FALSE, message=FALSE}
+library(BatchGetSymbols)
+ticker <- 'PETR4.SA'
+inicio <- Sys.Date()-100
+fim <- Sys.Date()
+l.out <- BatchGetSymbols(tickers = ticker,
+                         first.date = inicio,
+                         last.date = fim)
+```
+
+-- Gráfico
+
+```{r, echo=TRUE, warning=FALSE, message=FALSE}
+library(ggplot2)
+p <- ggplot(data = l.out$df.tickers, aes(x = ref.date, y = price.close))
+p <- p + geom_line()
+p <- p + labs(x = 'Dates', y = 'Adjusted closing prices')
+print(p)
+```
+
+
+***
+
+- Biblioteca `ustyc`: baixa dados da curva de juros dos EUA
+
+-- Análise recente da curva de juros dos EUA em 2018
+
+```{r, echo=TRUE, warning=FALSE, message=FALSE}
+library(ustyc)
+library(tidyr)
+library(ggplot2)
+library(stringr)
+# Baixa curva em 2018
+my.df.yc <- getYieldCurve(year = 2018)$df
+# formata
+my.df.yc$ref.date <- as.Date(rownames(my.df.yc))
+my.df.yc <- gather(data=my.df.yc, key =ref.date)
+names(my.df.yc) <- c('ref.date', 'maturity', 'rate')
+my.df.yc$maturity <- as.factor(my.df.yc$maturity)
+idx <- str_detect(my.df.yc$maturity, 'YEAR')
+my.df.yc <- my.df.yc[idx, ]
+out <- str_extract_all(string = my.df.yc$maturity,
+                       pattern = '([0-9]+)')
+my.df.yc$maturity <- as.numeric(out)
+last.date <- max(my.df.yc$ref.date)
+my.df.yc.last.date <- my.df.yc[my.df.yc$ref.date == last.date, ]
+# faz o gráfico
+p <- ggplot(my.df.yc.last.date, aes(x=maturity, y=rate))
+p <- p + geom_point(size=2)
+p <- p + geom_line(size=1)
+p <- p + labs(x = 'Maturity (years)', 
+              y='Yield Rate',
+              title = paste0('US Yield Curve (',last.date,')' ))
+print(p)
+```  
+
+
+-- Comparação entre curvas de juros em vários períodos
+
+```{r, echo=TRUE, warning=FALSE, message=FALSE}
+# set number of periods 
+n.periods <- 5
+my.seq <- floor(seq(1,nrow(my.df.yc), length.out = n.periods))
+my.dates <- my.df.yc$ref.date[my.seq]
+idx <- my.df.yc$ref.date %in% my.dates
+my.df.yc.periods <- my.df.yc[idx, ]
+# Gráfico
+p <- ggplot(my.df.yc.periods, aes(x=maturity, 
+                                  y=rate, 
+                                  color= factor(ref.date)))
+p <- p + geom_point(size=2)
+p <- p + geom_line(size=1)
+p <- p + labs(x = 'Maturity (years)', 
+              y='Yield Rate',
+              title = 'US Yield Curve')
+print(p)
+```
+
+***
+
+- Pacote `getTDData`: baixa a curva de juros do Brasil
+
+-- Análise recente da curva de juros 
+
+```{r, echo=TRUE, warning=FALSE, message=FALSE}
+library(GetTDData)
+library(ggplot2)
+df.yield <- get.yield.curve()  
+p <- ggplot(df.yield, aes(x=ref.date, y = value) ) +
+  geom_line(size=1) + geom_point() + facet_grid(~type, scales = 'free') + 
+  labs(title = paste0('The current Brazilian Yield Curve '),
+       subtitle = paste0('Date: ', df.yield$current.date[1]))     
+print(p)  
+```
+
